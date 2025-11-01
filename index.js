@@ -18,15 +18,18 @@ export default {
 // Durable Object
 export class WebSocketHibernationServer extends DurableObject {
   sessions; // Keeps track of all WebSocket connections. When the DO hibernates, gets reconstructed in the constructor
-
+  clients;
+  
   constructor(ctx, env) {
     super(ctx, env);
     this.sessions = new Map(); // As part of constructing the Durable Object, we wake up any hibernating WebSockets and place them back in the `sessions` map.
-
+    this.clients = [];
+    
     // Get all WebSocket connections from the DO. If we previously attached state to our WebSocket, let's add it to `sessions` map to restore the state of the connection.
     this.ctx.getWebSockets().forEach((ws) => { 
       let attachment = ws.deserializeAttachment();
       if (attachment) this.sessions.set(ws, { ...attachment });
+      this.clients[attachment.id] = ws;
     });
 
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong")); // Sets an application level auto response that does not wake hibernated WebSockets.
@@ -37,7 +40,8 @@ export class WebSocketHibernationServer extends DurableObject {
     this.ctx.acceptWebSocket(server);
 
     // Attach the session ID to the WebSocket connection and serialize it. This is necessary to restore the state of the connection when the Durable Object wakes up.
-    const id = this.sessions.size;
+    const id = this.clients.length;
+    this.clients.push(server);
     server.serializeAttachment({ id });
     this.sessions.set(server, { id }); // Add the WebSocket connection to the map of active sessions.
 
