@@ -79,7 +79,7 @@ export class WebSocketHibernationServer extends DurableObject {
 		if (session.server !== undefined) { 
 			let client = this.clients[data.client];    
 			if (!session.server) {
-				if (data.server && !data.key) return updateMeta(client, data);
+				if (data.server && !data.key) return updateMeta(client, data, this);
 				else client.send(JSON.stringify({msg:2})); // Invalid key.
 			}
 			delete data.client;
@@ -92,14 +92,14 @@ export class WebSocketHibernationServer extends DurableObject {
 		} else if (data.key !== undefined) {
 			data.client = session.client;
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
-			else if (!data.server && data.key == "secret") return updateMeta(ws, data);
+			else if (!data.server && data.key == "secret") return updateMeta(ws, data, this);
 			else ws.send(JSON.stringify({msg:2})); // Invalid key.
 		} else ws.send(JSON.stringify({msg:1})); // Server offline.
 		
-		function updateMeta(ws, data) {
+		function updateMeta(ws, data, cls) {
 			ws.serializeAttachment({client:data.client, server:data.server});
-			this.sessions.set(ws, {client:data.client, server:data.server});
-			this.servers[data.server] = ws;
+			cls.sessions.set(ws, {client:data.client, server:data.server});
+			cls.servers[data.server] = ws;
 			ws.send(JSON.stringify({msg:0})); // Server ID confirmed.
 		}
 	}
