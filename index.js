@@ -98,7 +98,7 @@ export class WebSocketHibernationServer extends DurableObject {
 		} else if (data.key !== undefined) {
 			data.client = session.client;
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
-			else if (!data.server && data.key == env.dns) return updateMeta(ws, data, this);
+			else if (!data.server && data.key == process.env.dns) return updateMeta(ws, data, this);
 			else ws.send(JSON.stringify({msg:2})); // Invalid key.
 		} else ws.send(JSON.stringify({msg:1})); // Server offline.
 		
