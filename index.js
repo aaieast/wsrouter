@@ -32,11 +32,13 @@ export class WebSocketHibernationServer extends DurableObject {
 	sessions; // Keeps track of all WebSocket connections. When the DO hibernates, gets reconstructed in the constructor
 	clients;
 	servers;
+	dns;
   
 	constructor(ctx, env) {
 		super(ctx, env);
 		this.clients = [];
 		this.servers = [];
+		this.dns = env.dns;
 		
 		this.sessions = new Map(); // As part of constructing the Durable Object, we wake up any hibernating WebSockets and place them back in the `sessions` map.
 		// Get all WebSocket connections from the DO. If we previously attached state to our WebSocket, let's add it to `sessions` map to restore the state of the connection.
@@ -105,7 +107,7 @@ export class WebSocketHibernationServer extends DurableObject {
 		} else if (data.key !== undefined) {
 			data.client = session.client;
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
-			else if (!data.server && data.key == process.env.dns) return updateMeta(ws, data, this);
+			else if (!data.server && data.key == this.dns) return updateMeta(ws, data, this);
 			else ws.send(JSON.stringify({msg:2})); // Invalid key.
 		} else ws.send(JSON.stringify({msg:1})); // Server offline.
 	}
