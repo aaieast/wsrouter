@@ -107,8 +107,8 @@ export class WebSocketHibernationServer extends DurableObject {
 	}
 
 	async webSocketClose(ws, code, reason, wasClean) {
-		this.sessions.delete(ws);
 		delete this.servers[this.sessions.get(ws).server];
+		this.sessions.delete(ws);
 		ws.close(code, "Durable Object is closing WebSocket");
 	}
 }
