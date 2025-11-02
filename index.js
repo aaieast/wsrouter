@@ -62,6 +62,12 @@ export class WebSocketHibernationServer extends DurableObject {
 		return new Response(null, {status: 101, webSocket: client});
 	}
 
+	async webSocketClose(ws, code, reason, wasClean) {
+		delete this.servers[this.sessions.get(ws).server];
+		this.sessions.delete(ws);
+		ws.close(code, "Durable Object is closing WebSocket");
+	}
+
 	async webSocketMessage(ws, data) {
 		// Get the session associated with the WebSocket connection.
 		const session = this.sessions.get(ws);
@@ -92,7 +98,7 @@ export class WebSocketHibernationServer extends DurableObject {
 		} else if (data.key !== undefined) {
 			data.client = session.client;
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
-			else if (!data.server && data.key == "secret") return updateMeta(ws, data, this);
+			else if (!data.server && data.key == env.dns) return updateMeta(ws, data, this);
 			else ws.send(JSON.stringify({msg:2})); // Invalid key.
 		} else ws.send(JSON.stringify({msg:1})); // Server offline.
 		
@@ -102,11 +108,5 @@ export class WebSocketHibernationServer extends DurableObject {
 			cls.servers[data.server] = ws;
 			ws.send(JSON.stringify({msg:0})); // Server ID confirmed.
 		}
-	}
-
-	async webSocketClose(ws, code, reason, wasClean) {
-		delete this.servers[this.sessions.get(ws).server];
-		this.sessions.delete(ws);
-		ws.close(code, "Durable Object is closing WebSocket");
 	}
 }
