@@ -2,17 +2,14 @@ import { DurableObject } from "cloudflare:workers";
 
 // Worker
 export default { async fetch(request, env, ctx) {
-	// if (!request.url.endsWith("/websocket")) return new Response(`Supported endpoints: /websocket: Expects a WebSocket upgrade request`, {status: 200, headers: {"Content-Type": "text/plain"}});
-    
 	const upgradeHeader = request.headers.get("Upgrade");
 	if (upgradeHeader && upgradeHeader == "websocket") {
 		if (request.method !== "GET") return new Response("Worker expected GET method", {status: 400});
 		
-		// Since we are hard coding the Durable Object ID by providing the constant name 'foo', all requests to this Worker will be sent to the same Durable Object instance.
+		// Since we hardcode the DO ID by providing the constant name 'foo', all requests to this Worker will be sent to the same DO instance.
 		return env.WEBSOCKET_HIBERNATION_SERVER.getByName("foo").fetch(request);
 	}
     
-    // return new Response("Worker expected Upgrade: websocket", {status: 426});
 	return new Response(`<script>
 var codeClient = new WebSocket("wss://" + window.location.toString().slice(8, -1));
 codeClient.onopen = function() { 
@@ -29,7 +26,7 @@ codeClient.onmessage = function(event) {
 
 // Durable Object
 export class WebSocketHibernationServer extends DurableObject {
-	sessions; // Keeps track of all WebSocket connections. When the DO hibernates, gets reconstructed in the constructor
+	sessions; // Tracks all WebSocket connections. When the DO hibernates, gets reconstructed in the constructor
 	clients;
 	servers;
 	dns;
@@ -40,23 +37,23 @@ export class WebSocketHibernationServer extends DurableObject {
 		this.servers = [];
 		this.dns = env.dns;
 		
-		this.sessions = new Map(); // As part of constructing the Durable Object, we wake up any hibernating WebSockets and place them back in the `sessions` map.
-		// Get all WebSocket connections from the DO. If we previously attached state to our WebSocket, let's add it to `sessions` map to restore the state of the connection.
+		this.sessions = new Map(); // As part of constructing the Durable Object, wake any hibernating WebSockets and place them back in `sessions`
 		this.ctx.getWebSockets().forEach((ws) => { 
 			let attachment = ws.deserializeAttachment();
+			this.sessions.set(ws, { ...attachment });
 			this.clients[attachment.client] = ws;
 			if (attachment.server !== undefined) this.servers[attachment.server] = ws;
-			if (attachment) this.sessions.set(ws, { ...attachment });
 		});
 
-    	this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong")); // Sets an application level auto response that does not wake hibernated WebSockets.
+		// Sets an application level auto response that does not wake hibernated WebSockets
+    	this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
 	}
 
 	async fetch(request) {
-		const [client, server] = Object.values(new WebSocketPair());  // Creates two ends of a WebSocket connection.
+		const [client, server] = Object.values(new WebSocketPair()); 
 		this.ctx.acceptWebSocket(server);
 		
-		// Attach the session ID to the WebSocket connection and serialize it. This is necessary to restore the state of the connection when the Durable Object wakes up.
+		// Attach session ID to the WebSocket connection and serialize it. This is needed to restore connection state when the DO wakes up.
 		server.serializeAttachment({ client:this.clients.length });
 		this.sessions.set(server, { client:this.clients.length }); // Add the WebSocket connection to the map of active sessions.
 		this.clients.push(server);
@@ -71,32 +68,29 @@ export class WebSocketHibernationServer extends DurableObject {
 	}
 
 	async webSocketMessage(ws, data) {
-		// Get the session associated with the WebSocket connection.
 		const session = this.sessions.get(ws);
+		
+		// Upon receiving message from client, the server echos the message, the session ID of the connection, and the total number of connections
 		let prefix = `[Durable Object] message: ${data}, from: ${session.client}, to: `;
 		let suffix = `. Total connections: ${this.sessions.size}`;
-		
-		// Upon receiving a message from the client, the server echos the message, the session ID of the connection, and the total number of connections
 		ws.send(prefix + `the initiating client` + suffix);
 		this.sessions.forEach((attachment, connectedWs) => { connectedWs.send(prefix + `all clients` + suffix); });
-		this.sessions.forEach((attachment, connectedWs) => { if (connectedWs !== ws) connectedWs.send(prefix + `all clients except the initiating client` + suffix); });
 		
 		try { data = JSON.parse(data); }
 		catch { return false; }
 		
-		function updateMeta(ws, data, cls) {
-			ws.serializeAttachment({client:data.client, server:data.server});
-			cls.sessions.set(ws, {client:data.client, server:data.server});
-			cls.servers[data.server] = ws;
-			ws.send(JSON.stringify({msg:0})); // Server ID confirmed.
+		function writeServer(ws, data, success, cls) {
+			if (success) {
+				ws.serializeAttachment({client:data.client, server:data.server});
+				cls.sessions.set(ws, {client:data.client, server:data.server});
+				cls.servers[data.server] = ws;
+				ws.send(JSON.stringify({msg:0})); // Server ID confirmed.
+			} else ws.send(JSON.stringify({msg:2})); // Invalid key.
 		}
 		
 		if (session.server !== undefined) { 
 			let client = this.clients[data.client];    
-			if (!session.server && !data.key) {
-				if (data.server) return updateMeta(client, data, this);
-				else client.send(JSON.stringify({msg:2})); // Invalid key.
-			}
+			if (!session.server && !data.key) return writeServer(client, data, data.server, this);
 			delete data.client;
 			if (client) client.send(JSON.stringify(data));
 		} else if (this.servers[data.server]) {
@@ -106,9 +100,9 @@ export class WebSocketHibernationServer extends DurableObject {
 			server.send(JSON.stringify(data));
 		} else if (data.key !== undefined) {
 			data.client = session.client;
+			if (!data.server) return writeServer(ws, data, data.key == this.dns, this);
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
-			else if (!data.server && data.key == this.dns) return updateMeta(ws, data, this);
-			else ws.send(JSON.stringify({msg:2})); // Invalid key.
+			else ws.send(JSON.stringify({msg:1})); // Server offline.
 		} else ws.send(JSON.stringify({msg:1})); // Server offline.
 	}
 }
