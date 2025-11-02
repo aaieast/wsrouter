@@ -78,8 +78,8 @@ export class WebSocketHibernationServer extends DurableObject {
 		
 		if (session.server !== undefined) { 
 			let client = this.clients[data.client];    
-			if (!session.server) {
-				if (data.server && !data.key) return updateMeta(client, data, this);
+			if (!session.server && !data.key) {
+				if (data.server) return updateMeta(client, data, this);
 				else client.send(JSON.stringify({msg:2})); // Invalid key.
 			}
 			delete data.client;
