@@ -32,7 +32,6 @@ export class WebSocketHibernationServer extends DurableObject {
 	sessions; // Keeps track of all WebSocket connections. When the DO hibernates, gets reconstructed in the constructor
 	clients;
 	servers;
-	constructed;
   
 	constructor(ctx, env) {
 		super(ctx, env);
@@ -44,11 +43,10 @@ export class WebSocketHibernationServer extends DurableObject {
 		this.ctx.getWebSockets().forEach((ws) => { 
 			let attachment = ws.deserializeAttachment();
 			this.clients[attachment.client] = ws;
-			if (attachment.server) this.servers[attachment.server] = ws;
+			if (attachment.server !== undefined) this.servers[attachment.server] = ws;
 			if (attachment) this.sessions.set(ws, { ...attachment });
 		});
 
-		this.constructed = true;
     	this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong")); // Sets an application level auto response that does not wake hibernated WebSockets.
 	}
 
@@ -99,12 +97,10 @@ export class WebSocketHibernationServer extends DurableObject {
 			data.client = session.client;
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
 			else if (data.key == "secret") {
-				let noServer = !this.servers[data.server];
 				ws.serializeAttachment({client:data.client, server:data.server});
 				this.sessions.set(ws, {client:data.client, server:data.server});
 				this.servers[data.server] = ws;
-				let noServerAfter = !this.servers[data.server];
-				ws.send(JSON.stringify({msg:0, theServers:this.servers, data, noServer, noServerAfter, constructed:this.constructed})) // Server ID confirmed.
+				ws.send(JSON.stringify({msg:0})) // Server ID confirmed.
 			}
 			else ws.send(JSON.stringify({msg:2})); // Invalid key.
 		} else ws.send(JSON.stringify({msg:1})); // Server offline.
