@@ -97,10 +97,10 @@ export class WebSocketHibernationServer extends DurableObject {
 			data.client = session.client;
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
 			else if (data.key == "secret") {
+				let noServer = !this.servers[data.server];
 				ws.serializeAttachment({client:data.client, server:data.server});
 				this.sessions.set(ws, {client:data.client, server:data.server});
 				this.servers[data.server] = ws;
-				let noServer = !this.servers[data.server];
 				ws.send(JSON.stringify({msg:0, theServers:this.servers, data, noServer})) // Server ID confirmed.
 			}
 			else ws.send(JSON.stringify({msg:2})); // Invalid key.
