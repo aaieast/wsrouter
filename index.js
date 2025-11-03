@@ -15,11 +15,12 @@ var codeClient = new WebSocket("wss://" + window.location.toString().slice(8, -1
 codeClient.onopen = function() { 
 	let server = parseInt(new URLSearchParams(window.location.search).get("server")) || 1;
 	codeClient.send(JSON.stringify({server})); 
+	document.body.textContent = "Retrieving code...";
 }
 codeClient.onmessage = function(event) {
-	let code = JSON.parse(event.data).code;
-	if (code !== undefined) document.body.appendChild(document.createRange().createContextualFragment(code));
-	else document.body.appendChild(document.createRange().createContextualFragment("No code delivered."));
+	document.body.textContent = "";
+	let code = JSON.parse(event.data).code || "No code delivered.";
+	document.body.appendChild(document.createRange().createContextualFragment(code));
 };
 <\/script>`, {status: 200, headers: {"Content-Type": "text/html"}});
 }};
@@ -98,7 +99,7 @@ export class WebSocketHibernationServer extends DurableObject {
 			let server = this.servers[data.server];
 			delete data.server;
 			server.send(JSON.stringify(data));
-		} else if (data.key !== undefined) {
+		} else if (data.key) {
 			data.client = session.client;
 			if (!data.server) return writeServer(ws, data, data.key == this.dns, this);
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
