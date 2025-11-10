@@ -10,12 +10,13 @@ export default { async fetch(request, env, ctx) {
 		return env.WEBSOCKET_HIBERNATION_SERVER.getByName("foo").fetch(request);
 	}
     
-	return new Response(`<script>
-var codeClient = new WebSocket("wss://" + window.location.toString().slice(8, -1));
+	return new Response(`Loading...
+<script>
+var codeClient = new WebSocket("wss://" + window.location.host);
 codeClient.onopen = function() { 
-	let server = parseInt(new URLSearchParams(window.location.search).get("server")) || 1;
+	let path = window.location.pathname.split("/");
+	let server = (path.length && parseInt(path[path.length - 1])) || 1;
 	codeClient.send(JSON.stringify({server})); 
-	document.body.textContent = "Retrieving code...";
 }
 codeClient.onmessage = function(event) {
 	document.body.textContent = "";
