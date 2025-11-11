@@ -2,8 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 
 // Worker
 export default { async fetch(request, env, ctx) {
-	const upgradeHeader = request.headers.get("Upgrade");
-	if (upgradeHeader && upgradeHeader == "websocket") {
+	if (request.headers.get("Upgrade") == "websocket") {
 		if (request.method !== "GET") return new Response("Worker expected GET method", {status: 400});
 		
 		// Since we hardcode the DO ID by providing the constant name 'foo', all requests to this Worker will be sent to the same DO instance.
@@ -75,8 +74,8 @@ export class WebSocketHibernationServer extends DurableObject {
 		// Upon receiving message from client, the server echos the message, the session ID of the connection, and the total number of connections
 		let prefix = `[Durable Object] message: ${data}, from: ${session.client}, to: `;
 		let suffix = `. Total connections: ${this.sessions.size}`;
-		ws.send(prefix + `the initiating client` + suffix);
-		this.sessions.forEach((attachment, connectedWs) => { connectedWs.send(prefix + `all clients` + suffix); });
+		//ws.send(prefix + `the initiating client` + suffix);
+		//this.sessions.forEach((attachment, connectedWs) => { connectedWs.send(prefix + `all clients` + suffix); });
 		
 		try { data = JSON.parse(data); }
 		catch { return false; }
