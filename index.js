@@ -37,8 +37,10 @@ codeClient.onmessage = function(event) {
 		let ws;
 		newClient();
 		function newClient() {
+			D("sendInput").disabled = true;
 			ws = new WebSocket("wss://" + window.location.host);
 			ws.onclose = newClient;
+			ws.onopen = function() { D("sendInput").disabled = false; };
 			ws.onmessage = function(event) {
 				let data = JSON.parse(event.data);
 				if (data.err) alert("Server offline.");
@@ -48,11 +50,9 @@ codeClient.onmessage = function(event) {
 		
 		D('sendInput').onkeyup = function(event) {
 			if (event.keyCode != 13) return false;
-			if (ws.readyState == 1) {
-				append("Me: " + D("sendInput").value);
-				ws.send(JSON.stringify({msg:D("sendInput").value, server})); 
-				D("sendInput").value = "";
-			} else alert("Server offline.");
+			append("Me: " + D("sendInput").value);
+			ws.send(JSON.stringify({msg:D("sendInput").value, server})); 
+			D("sendInput").value = "";
 		};
 		
 		function append(text) {
