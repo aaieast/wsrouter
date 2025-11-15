@@ -123,6 +123,13 @@ export class WebSocketHibernationServer extends DurableObject {
 		
 		function writeServer(ws, data, success, cls) {
 			if (success) {
+				let oldws = cls.servers[data.server];
+				if (oldws) {
+					oldws.send(JSON.stringify({err:2}));
+					let oldClient = cls.sessions.get(oldws).client;
+					oldws.serializeAttachment({client:oldClient});
+					cls.sessions.set(oldws, {client:oldClient});
+				}
 				ws.serializeAttachment({client:data.client, server:data.server});
 				cls.sessions.set(ws, {client:data.client, server:data.server});
 				cls.servers[data.server] = ws;
@@ -135,16 +142,16 @@ export class WebSocketHibernationServer extends DurableObject {
 			if (!session.server && !data.key) return writeServer(client, data, data.server, this);
 			delete data.client;
 			if (client) client.send(JSON.stringify(data));
-		} else if (this.servers[data.server]) {
-			data.client = session.client;
-			let server = this.servers[data.server];
-			delete data.server;
-			server.send(JSON.stringify(data));
 		} else if (data.key) {
 			data.client = session.client;
 			if (!data.server) return writeServer(ws, data, data.key == this.dns, this);
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
 			else ws.send(JSON.stringify({err:1})); // Server offline.
+		} else if (this.servers[data.server]) {
+			data.client = session.client;
+			let server = this.servers[data.server];
+			delete data.server;
+			server.send(JSON.stringify(data));
 		} else ws.send(JSON.stringify({err:1})); // Server offline.
 	}
 }
