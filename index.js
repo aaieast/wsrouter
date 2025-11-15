@@ -31,7 +31,7 @@ codeClient.onmessage = function(event) {
 		document.body.textContent = "";
 		document.body.appendChild(document.createRange().createContextualFragment(data.code));
 	} else {
-		D("load").style.display = "none";
+		D("load").textContent = "Server " + server + ": (no client code delivered)";
 		D("messenger").style.display = "flex";
 		
 		let ws;
@@ -42,20 +42,20 @@ codeClient.onmessage = function(event) {
 			ws.onmessage = function(event) {
 				let data = JSON.parse(event.data);
 				if (data.err) alert("Server offline.");
-				else if (data.msg) sendAppend("Server: " + data.msg);
+				else if (data.msg) append("Server " + server + ": " + data.msg);
 			};
 		}
 		
 		D('sendInput').onkeyup = function(event) {
 			if (event.keyCode != 13) return false;
 			if (ws.readyState == 1) {
-				sendAppend("Me: " + D("sendInput").value);
+				append("Me: " + D("sendInput").value);
 				ws.send(JSON.stringify({msg:D("sendInput").value, server})); 
 				D("sendInput").value = "";
 			} else alert("Server offline.");
 		};
 		
-		function sendAppend(text) {
+		function append(text) {
 			let li = document.createElement("div");
 			li.textContent = text;
 			D('sent').appendChild(li);
