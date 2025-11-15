@@ -9,18 +9,59 @@ export default { async fetch(request, env, ctx) {
 		return env.WEBSOCKET_HIBERNATION_SERVER.getByName("foo").fetch(request);
 	}
     
-	return new Response(`Loading...
+	return new Response(`<span id="load">Loading...</span>
+<div id="messenger" style="display:none; flex-direction:column; gap:10px">
+	<div id="sent"></div>
+	<input id="sendInput" style="position:sticky; bottom:8px" placeholder="Send..."></input>
+</div>
+
 <script>
 var codeClient = new WebSocket("wss://" + window.location.host);
 codeClient.onopen = function() { 
-	let path = window.location.pathname.split("/");
-	let server = (path.length && parseInt(path[path.length - 1])) || 1;
-	codeClient.send(JSON.stringify({server})); 
+	let path = window.location.pathname.slice(1).split("/");
+	codeClient.send(JSON.stringify({server:(path.length && parseInt(path[0])) || 1})); 
 }
 codeClient.onmessage = function(event) {
-	document.body.textContent = "";
-	let code = JSON.parse(event.data).code || "No code delivered.";
-	document.body.appendChild(document.createRange().createContextualFragment(code));
+	function D(id) { return document.getElementById(id); }
+	let path = window.location.pathname.slice(1).split("/");
+	let server = (path.length && parseInt(path[0])) || 1;
+	let data = JSON.parse(event.data);
+	if (data.err) D("load").textContent = "Server " + server + " unavailable.";
+	else if (data.code) {
+		document.body.textContent = "";
+		document.body.appendChild(document.createRange().createContextualFragment(data.code));
+	} else {
+		D("load").style.display = "none";
+		D("messenger").style.display = "flex";
+		
+		let ws;
+		newClient();
+		function newClient() {
+			ws = new WebSocket("wss://" + window.location.host);
+			ws.onclose = newClient;
+			ws.onmessage = function(event) {
+				let data = JSON.parse(event.data);
+				if (data.err) alert("Server offline.");
+				else if (data.msg) sendAppend("Server: " + data.msg);
+			};
+		}
+		
+		D('sendInput').onkeyup = function(event) {
+			if (event.keyCode != 13) return false;
+			if (ws.readyState == 1) {
+				sendAppend("Me: " + D("sendInput").value);
+				ws.send(JSON.stringify({msg:D("sendInput").value, server})); 
+				D("sendInput").value = "";
+			} else alert("Server offline.");
+		};
+		
+		function sendAppend(text) {
+			let li = document.createElement("div");
+			li.textContent = text;
+			D('sent').appendChild(li);
+			window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+		}
+	}
 };
 <\/script>`, {status: 200, headers: {"Content-Type": "text/html"}});
 }};
