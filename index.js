@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+eimport { DurableObject } from "cloudflare:workers";
 
 // Worker
 export default { async fetch(request, env, ctx) {
@@ -126,8 +126,8 @@ export class WebSocketHibernationServer extends DurableObject {
 				ws.serializeAttachment({client:data.client, server:data.server});
 				cls.sessions.set(ws, {client:data.client, server:data.server});
 				cls.servers[data.server] = ws;
-				ws.send(JSON.stringify({msg:0})); // Server ID confirmed.
-			} else ws.send(JSON.stringify({msg:2})); // Invalid key.
+				ws.send(JSON.stringify({err:0})); // Server ID confirmed.
+			} else ws.send(JSON.stringify({err:2})); // Invalid key.
 		}
 		
 		if (session.server !== undefined) { 
@@ -144,7 +144,7 @@ export class WebSocketHibernationServer extends DurableObject {
 			data.client = session.client;
 			if (!data.server) return writeServer(ws, data, data.key == this.dns, this);
 			if (this.servers[0]) this.servers[0].send(JSON.stringify(data));
-			else ws.send(JSON.stringify({msg:1})); // Server offline.
-		} else ws.send(JSON.stringify({msg:1})); // Server offline.
+			else ws.send(JSON.stringify({err:1})); // Server offline.
+		} else ws.send(JSON.stringify({err:1})); // Server offline.
 	}
 }
