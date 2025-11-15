@@ -1,4 +1,4 @@
-eimport { DurableObject } from "cloudflare:workers";
+import { DurableObject } from "cloudflare:workers";
 
 // Worker
 export default { async fetch(request, env, ctx) {
