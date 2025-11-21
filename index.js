@@ -28,8 +28,8 @@ codeClient.onmessage = function(event) {
 	let data = JSON.parse(event.data);
 	if (data.err) D("load").textContent = "Server " + server + " unavailable.";
 	else if (data.code) {
-		document.body.textContent = "";
-		document.body.appendChild(document.createRange().createContextualFragment(data.code));
+		document.documentElement.textContent = "";
+		document.documentElement.appendChild(document.createRange().createContextualFragment(data.code));
 	} else {
 		D("load").textContent = "Server " + server + ": (no client code delivered)";
 		D("messenger").style.display = "flex";
@@ -140,6 +140,7 @@ export class WebSocketHibernationServer extends DurableObject {
 		if (session.server !== undefined) { 
 			let client = this.clients[data.client];    
 			if (!session.server && !data.key) return writeServer(client, data, data.server, this);
+			if (!client) ws.send(JSON.stringify({client:data.client, err:3}));
 			delete data.client;
 			if (client) client.send(JSON.stringify(data));
 		} else if (data.key) {
